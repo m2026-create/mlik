@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>나의 데이터 만들기 — 우유 꿀꺽 출석부</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📸</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Gaegu:wght@400;700&display=swap" rel="stylesheet">
+<!-- 출석부 앱과 같은 꾸미기를 그대로 씁니다 -->
+<link rel="stylesheet" href="css/style.css">
+<style>
+  /* 이 화면에만 필요한 꾸미기 */
+  .goalbar{
+    height:10px;background:#E9EDF5;border-radius:999px;overflow:hidden;margin-top:6px;width:76px;
+  }
+  .goalbar i{display:block;height:100%;background:var(--mint-d);}
+  .card .today{font-size:12px;font-weight:700;}
+  .card .today.yes{color:var(--mint-d);}
+  .card .today.no{color:var(--gray);}
+
+  .shot-preview{
+    width:100%;max-width:340px;margin:0 auto;display:block;
+    border-radius:var(--radius);box-shadow:var(--shadow);background:#2B2F42;
+  }
+  .count-chip{
+    display:inline-block;background:#fff;border-radius:999px;padding:5px 14px;
+    box-shadow:var(--shadow);font-size:15px;margin-top:10px;
+  }
+
+  /* 선생님 화면 표 */
+  .tbl-wrap{overflow-x:auto;background:#fff;border-radius:var(--radius);
+    box-shadow:var(--shadow);padding:12px;}
+  table.grid{border-collapse:collapse;width:100%;font-size:13px;font-family:-apple-system,"Malgun Gothic",sans-serif;}
+  table.grid th,table.grid td{border:1px solid #E4E8F0;padding:5px 7px;text-align:center;white-space:nowrap;}
+  table.grid th{background:#F2F5FA;}
+  table.grid td.nm{text-align:left;font-weight:700;}
+  .o{color:var(--mint-d);font-weight:700;}
+  .x{color:#D9DEE8;}
+  .box{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;margin-bottom:14px;}
+  .box h3{margin:0 0 8px;font-size:18px;}
+  .box p.note{margin:6px 0 0;color:var(--gray);font-size:13px;line-height:1.6;}
+  textarea{
+    width:100%;min-height:120px;padding:10px;border:2px solid #E4E8F0;border-radius:12px;
+    font-family:-apple-system,"Malgun Gothic",sans-serif;font-size:14px;line-height:1.7;
+  }
+  input.num{width:90px;padding:9px;border:2px solid #E4E8F0;border-radius:10px;
+    font-family:inherit;font-size:16px;text-align:center;}
+  .hidden{display:none;}
+</style>
+</head>
+<body>
+
+<div class="clouds" aria-hidden="true">
+  <span class="cloud c1">☁️</span><span class="cloud c2">☁️</span><span class="cloud c3">☁️</span>
+</div>
+
+<header class="topbar">
+  <h1><span class="logo">📸</span> 나의 데이터 만들기</h1>
+  <p class="subtitle" id="classLabel">3학년 1반</p>
+  <button class="teacher-btn" id="btnTeacher" title="선생님 전용">⚙️</button>
+</header>
+
+<main>
+
+  <!-- ===== 화면 1 : 이름 고르기 ===== -->
+  <section class="screen active" id="screen-home">
+    <div class="speech">
+      <p>우유갑에 <b>내 이름</b>을 쓰고<br>사진을 찍어 주세요!</p>
+    </div>
+    <div class="roster" id="roster"></div>
+    <p class="hint" id="homeHint"></p>
+  </section>
+
+  <!-- ===== 화면 2 : 사진 찍기 ===== -->
+  <section class="screen" id="screen-camera">
+    <div class="speech">
+      <p><b id="camName">○○</b> 이름이 적힌 <b>우유갑</b>을<br>네모 칸에 맞춰주세요!</p>
+    </div>
+
+    <div class="camera-wrap">
+      <video id="video" autoplay playsinline muted></video>
+      <div class="frame-guide"><span>여기에 이름 맞추기</span></div>
+      <button type="button" class="cam-switch hidden" id="btnCamSwitch" title="카메라 바꾸기">
+        <span aria-hidden="true">🔄</span>
+        <span class="cam-switch-label" id="camSwitchLabel">카메라</span>
+      </button>
+      <div class="cam-flash" id="camFlash"></div>
+    </div>
+
+    <p style="text-align:center;margin:0;">
+      <span class="count-chip" id="camCount">오늘 0장</span>
+    </p>
+
+    <div class="btn-row">
+      <button class="btn btn-ghost" id="btnBackHome">← 뒤로</button>
+      <button class="btn btn-big" id="btnShoot">📸 찰칵!</button>
+    </div>
+    <p class="hint" id="camHint"></p>
+  </section>
+
+  <!-- ===== 화면 3 : 이대로 저장할까요? ===== -->
+  <section class="screen" id="screen-confirm">
+    <div class="speech">
+      <p>이름이 <b>잘 보이나요?</b><br>흐리면 다시 찍어요!</p>
+    </div>
+    <img class="shot-preview" id="shotPreview" alt="방금 찍은 사진">
+    <div class="btn-row">
+      <button class="btn btn-ghost" id="btnAgain">↺ 다시 찍기</button>
+      <button class="btn btn-big" id="btnKeep">✅ 저장!</button>
+    </div>
+  </section>
+
+  <!-- ===== 화면 4 : 다 모았어요 ===== -->
+  <section class="screen" id="screen-done">
+    <div style="text-align:center;font-size:72px;">🎉</div>
+    <div class="speech">
+      <p><b id="doneName">○○</b> 오늘 치를 다 모았어요!<br>고마워요!</p>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-big" id="btnDoneHome">처음으로</button>
+      <button class="btn btn-ghost" id="btnMore">더 찍기</button>
+    </div>
+  </section>
+
+  <!-- ===== 화면 5 : 선생님 ===== -->
+  <section class="screen" id="screen-teacher">
+    <h2 class="sec-title">⚙️ 선생님 화면</h2>
+
+    <div class="box">
+      <h3>📁 사진 꺼내기</h3>
+      <div class="btn-row wrap" style="margin-top:4px;">
+        <button class="btn btn-small" id="btnFolder">📁 폴더에 바로 저장</button>
+        <button class="btn btn-small" id="btnZip">📦 ZIP으로 내려받기</button>
+      </div>
+      <p class="note" id="exportNote"></p>
+      <p class="note">
+        학생 이름마다 폴더를 만들고 그 안에 <code>이름_0001.jpg</code> 로 넣습니다.
+        티처블 머신에서 클래스마다 <b>업로드</b> 할 때 그 폴더를 통째로 고르면 됩니다.
+      </p>
+    </div>
+
+    <div class="box">
+      <h3>📅 날짜별 현황</h3>
+      <div class="tbl-wrap"><table class="grid" id="tblDays"></table></div>
+      <p class="note">최근 7일입니다. 숫자는 그날 찍은 장수입니다.</p>
+    </div>
+
+    <div class="box">
+      <h3>👥 학생별 모은 장수</h3>
+      <div class="tbl-wrap"><table class="grid" id="tblStudents"></table></div>
+    </div>
+
+    <div class="box">
+      <h3>✏️ 설정</h3>
+      <p style="margin:0 0 6px;font-size:15px;">우리 반 이름</p>
+      <input type="text" id="cfgClass" class="num" style="width:100%;text-align:left;">
+      <p style="margin:12px 0 6px;font-size:15px;">하루 목표 장수</p>
+      <input type="number" id="cfgGoal" class="num" min="1" max="50">
+      <p style="margin:12px 0 6px;font-size:15px;">우리 반 명단 (한 줄에 한 명)</p>
+      <textarea id="cfgRoster" placeholder="김하준, 🐰&#10;이서아, 🐱"></textarea>
+      <p class="note">이름, 이모지 순서입니다. 이모지는 빼도 됩니다.</p>
+      <div class="btn-row wrap">
+        <button class="btn btn-small" id="btnSaveCfg">💾 저장하기</button>
+        <button class="btn btn-small danger" id="btnWipe">🗑 사진 전부 지우기</button>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-ghost" id="btnTeacherBack">← 돌아가기</button>
+    </div>
+  </section>
+
+</main>
+
+<canvas id="canvas" class="hidden"></canvas>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<!-- 출석부 앱의 기본 설정(명단 등)을 그대로 가져다 씁니다 -->
+<script src="js/config.js"></script>
+<script>
+/* ============================================================
+   collect.html - 티처블 머신 학습용 사진을 모으는 화면
+
+   흐름
+   [이름 고르기] -> [사진 찍기] -> [이대로 저장?] -> [저장]
+   선생님 화면에서 폴더나 ZIP으로 꺼냅니다.
+
+   사진은 이 기기의 브라우저 안(IndexedDB)에만 쌓입니다.
+   서버로 보내지 않으며, 꺼내는 것도 이 기기 안에서 일어납니다.
+   ============================================================ */
+
+const $ = (id) => document.getElementById(id);
+const CFG_KEY = 'milk-collect-cfg';      // 이 화면의 설정
+const CAM_KEY = 'milk-camera-v1';        // 고른 카메라 (출석부 앱과 같이 씁니다)
+const SHOT = 320;                        // 저장할 사진 크기 (정사각형)
+
+let cfg = null;        // {className, goal, roster:[{name,emoji}]}
+let db = null;         // IndexedDB
+let tally = {};        // {학생이름: {날짜: 장수}}
+let current = null;    // 지금 찍는 학생
+let stream = null;
+let camList = [], camIndex = 0;
+let pendingBlob = null;  // 저장을 기다리는 사진
+
+/* 오늘 날짜를 'YYYY-MM-DD' 로 */
+function today() {
+  const d = new Date();
+  return d.getFullYear() + '-' +
+    String(d.getMonth() + 1).padStart(2, '0') + '-' +
+    String(d.getDate()).padStart(2, '0');
+}
+
+function show(id) {
+  document.querySelectorAll('.screen').forEach((s) => s.classList.remove('active'));
+  $(id).classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+/* =============================================================
+   1. 설정 불러오기
+   ============================================================= */
+function loadCfg() {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(CFG_KEY)); } catch (e) {}
+  if (saved && saved.roster) return saved;
+
+  // 처음 켤 때는 출석부 앱의 명단을 그대로 빌려 옵니다.
+  let roster = null, className = null;
+  try {
+    const app = JSON.parse(localStorage.getItem('milk-attendance-v1'));
+    if (app && app.config && app.config.roster && app.config.roster.length) {
+      roster = app.config.roster.map((r) => ({ name: r.name, emoji: r.emoji || '🙂' }));
+      className = app.config.className;
+    }
+  } catch (e) {}
+
+  if (!roster && typeof DEFAULT_CONFIG !== 'undefined') {
+    roster = DEFAULT_CONFIG.roster.map((r) => ({ name: r.name, emoji: r.emoji || '🙂' }));
+    className = DEFAULT_CONFIG.className;
+  }
+
+  return {
+    className: className || '우리 반',
+    goal: 10,
+    roster: roster || [{ name: '학생1', emoji: '🙂' }],
+  };
+}
+
+function saveCfg() {
+  const lines = $('cfgRoster').value.split('\n')
+    .map((s) => s.trim()).filter(Boolean);
+
+  const roster = lines.map((line) => {
+    const part = line.split(',').map((s) => s.trim());
+    return { name: part[0], emoji: part[1] || '🙂' };
+  }).filter((r) => r.name);
+
+  if (!roster.length) { alert('명단을 한 명 이상 적어주세요.'); return; }
+
+  cfg = {
+    className: $('cfgClass').value.trim() || '우리 반',
+    goal: Math.max(1, Number($('cfgGoal').value) || 10),
+    roster: roster,
+  };
+  localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+  $('classLabel').textContent = cfg.className;
+  refresh().then(() => alert('저장했습니다!'));
+}
+
+/* =============================================================
+   2. 사진 창고 (IndexedDB)
+   ------------------------------------------------------------
+   사진은 용량이 커서 localStorage 에 넣을 수 없습니다.
+   shots 저장소에 {name, date, ts, blob} 으로 한 장씩 넣고,
+   [이름, 날짜] 색인으로 숫자만 빠르게 셉니다.
+   ============================================================= */
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('milk-collect', 1);
+    req.onupgradeneeded = () => {
+      const d = req.result;
+      const st = d.createObjectStore('shots', { keyPath: 'id', autoIncrement: true });
+      st.createIndex('by_name_date', ['name', 'date']);
+      st.createIndex('by_name', 'name');
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function addShot(name, blob) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('shots', 'readwrite');
+    tx.objectStore('shots').add({ name: name, date: today(), ts: Date.now(), blob: blob });
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+/* 장수만 세기 — 사진 자체는 읽지 않아서 빠릅니다 (openKeyCursor) */
+function countAll() {
+  return new Promise((resolve, reject) => {
+    const out = {};
+    const tx = db.transaction('shots', 'readonly');
+    const cur = tx.objectStore('shots').index('by_name_date').openKeyCursor();
+    cur.onsuccess = () => {
+      const c = cur.result;
+      if (!c) { resolve(out); return; }
+      const [name, date] = c.key;
+      (out[name] = out[name] || {});
+      out[name][date] = (out[name][date] || 0) + 1;
+      c.continue();
+    };
+    cur.onerror = () => reject(cur.error);
+  });
+}
+
+function wipeAll() {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('shots', 'readwrite');
+    tx.objectStore('shots').clear();
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+/* =============================================================
+   3. 집계 도우미
+   ============================================================= */
+const countToday = (name) => (tally[name] && tally[name][today()]) || 0;
+const countTotal = (name) => {
+  const m = tally[name] || {};
+  return Object.keys(m).reduce((s, d) => s + m[d], 0);
+};
+
+/* 최근 n일 날짜 목록 (오래된 것부터) */
+function lastDays(n) {
+  const out = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    out.push(d.getFullYear() + '-' +
+      String(d.getMonth() + 1).padStart(2, '0') + '-' +
+      String(d.getDate()).padStart(2, '0'));
+  }
+  return out;
+}
+
+/* =============================================================
+   4. 이름 카드 그리기
+   ============================================================= */
+function renderRoster() {
+  const box = $('roster');
+  box.innerHTML = '';
+
+  cfg.roster.forEach((stu) => {
+    const t = countToday(stu.name);
+    const all = countTotal(stu.name);
+    const doneToday = t >= cfg.goal;
+
+    const card = document.createElement('button');
+    card.className = 'card' + (doneToday ? ' done' : '');
+    card.innerHTML =
+      '<span class="face">' + esc(stu.emoji) + '</span>' +
+      '<span class="nm">' + esc(stu.name) + '</span>' +
+      '<span class="today ' + (t > 0 ? 'yes' : 'no') + '">' +
+        (t > 0 ? '오늘 ' + t + '장' : '오늘 아직') + '</span>' +
+      '<span class="mini">모두 ' + all + '장</span>' +
+      '<span class="goalbar"><i style="width:' +
+        Math.min(100, (t / cfg.goal) * 100) + '%"></i></span>';
+    card.onclick = () => startCamera(stu);
+    box.appendChild(card);
+  });
+
+  const didToday = cfg.roster.filter((s) => countToday(s.name) > 0).length;
+  $('homeHint').innerHTML =
+    '오늘 <b>' + didToday + '명</b> / ' + cfg.roster.length + '명이 사진을 올렸어요.' +
+    '<br>하루 목표는 한 사람당 ' + cfg.goal + '장입니다.';
+}
+
+/* =============================================================
+   5. 카메라 (출석부 앱과 같은 방식)
+   ============================================================= */
+async function startCamera(stu) {
+  current = stu;
+  $('camName').textContent = stu.name;
+  $('camHint').textContent = '';
+  updateCamCount();
+  show('screen-camera');
+
+  const pref = loadCamPref();
+  let ok = await openStream(pref);
+  if (!ok && pref.deviceId) { saveCamPref({}); ok = await openStream({}); }
+
+  if (!ok) {
+    $('camHint').innerHTML =
+      '카메라를 켤 수 없어요.<br>브라우저에서 카메라 사용을 <b>허용</b>해 주세요.';
+    $('btnCamSwitch').classList.add('hidden');
+    return;
+  }
+  await refreshCamList();
+}
+
+async function openStream(pref) {
+  const video = { width: { ideal: 1280 }, height: { ideal: 960 } };
+  if (pref && pref.deviceId) video.deviceId = { exact: pref.deviceId };
+  else video.facingMode = 'environment';
+
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: video, audio: false });
+    $('video').srcObject = stream;
+    return true;
+  } catch (e) {
+    console.error(e); stream = null; return false;
+  }
+}
+
+function stopCamera() {
+  if (stream) { stream.getTracks().forEach((t) => t.stop()); stream = null; }
+  $('video').srcObject = null;
+}
+
+async function refreshCamList() {
+  try {
+    const all = await navigator.mediaDevices.enumerateDevices();
+    camList = all.filter((d) => d.kind === 'videoinput');
+  } catch (e) { camList = []; }
+
+  const track = stream && stream.getVideoTracks()[0];
+  const nowId = (track && track.getSettings) ? (track.getSettings().deviceId || '') : '';
+  const found = camList.findIndex((d) => d.deviceId === nowId);
+  camIndex = found >= 0 ? found : 0;
+
+  const btn = $('btnCamSwitch');
+  if (camList.length > 1) {
+    btn.classList.remove('hidden');
+    $('camSwitchLabel').textContent = camName(camList[camIndex], camIndex);
+  } else {
+    btn.classList.add('hidden');
+  }
+}
+
+function camName(dev, i) {
+  const label = (dev && dev.label) || '';
+  if (/front|user|전면/i.test(label)) return '앞 카메라';
+  if (/back|rear|environment|후면/i.test(label)) return '뒤 카메라';
+  if (label) return label.length > 14 ? label.slice(0, 14) + '…' : label;
+  return '카메라 ' + (i + 1);
+}
+
+async function switchCamera() {
+  if (camList.length < 2) return;
+  const btn = $('btnCamSwitch');
+  btn.disabled = true;
+  const before = camIndex;
+  camIndex = (camIndex + 1) % camList.length;
+  const dev = camList[camIndex];
+
+  stopCamera();
+  if (await openStream({ deviceId: dev.deviceId })) {
+    saveCamPref({ deviceId: dev.deviceId });
+    $('camSwitchLabel').textContent = camName(dev, camIndex);
+  } else {
+    camIndex = before;
+    await openStream(loadCamPref());
+    $('camHint').textContent = '그 카메라는 지금 쓸 수 없어요. 다시 눌러 보세요.';
+  }
+  btn.disabled = false;
+}
+
+function loadCamPref() {
+  try { return JSON.parse(localStorage.getItem(CAM_KEY)) || {}; } catch (e) { return {}; }
+}
+function saveCamPref(p) {
+  try { localStorage.setItem(CAM_KEY, JSON.stringify(p)); } catch (e) {}
+}
+
+function updateCamCount() {
+  const t = countToday(current.name);
+  $('camCount').textContent = '오늘 ' + t + '장 / 목표 ' + cfg.goal + '장';
+}
+
+/* =============================================================
+   6. 찍기 -> 미리 보기 -> 저장
+   ------------------------------------------------------------
+   촬영 화면의 가운데를 정사각형으로 잘라 저장합니다.
+   출석부 앱이 판별할 때와 같은 방식이라, 학습 사진과
+   실제로 쓰는 사진의 모양이 어긋나지 않습니다.
+   ============================================================= */
+function shoot() {
+  if (!stream) return;
+
+  $('camFlash').classList.add('on');
+  setTimeout(() => $('camFlash').classList.remove('on'), 450);
+
+  const video = $('video');
+  const canvas = $('canvas');
+  canvas.width = SHOT; canvas.height = SHOT;
+
+  const vw = video.videoWidth || 640;
+  const vh = video.videoHeight || 480;
+  const side = Math.min(vw, vh);
+  const sx = (vw - side) / 2;
+  const sy = (vh - side) / 2;
+  canvas.getContext('2d').drawImage(video, sx, sy, side, side, 0, 0, SHOT, SHOT);
+
+  canvas.toBlob((blob) => {
+    pendingBlob = blob;
+    $('shotPreview').src = URL.createObjectURL(blob);
+    show('screen-confirm');
+  }, 'image/jpeg', 0.92);
+}
+
+async function keepShot() {
+  if (!pendingBlob || !current) return;
+  $('btnKeep').disabled = true;
+
+  await addShot(current.name, pendingBlob);
+  URL.revokeObjectURL($('shotPreview').src);
+  pendingBlob = null;
+  tally = await countAll();
+
+  $('btnKeep').disabled = false;
+
+  // 목표를 채웠으면 축하 화면, 아니면 바로 다음 장
+  if (countToday(current.name) >= cfg.goal) {
+    stopCamera();
+    $('doneName').textContent = current.name;
+    show('screen-done');
+  } else {
+    updateCamCount();
+    show('screen-camera');
+  }
+}
+
+/* =============================================================
+   7. 선생님 화면
+   ============================================================= */
+function openTeacher() {
+  const pin = (typeof DEFAULT_CONFIG !== 'undefined' && DEFAULT_CONFIG.teacherPin) || '1234';
+  const got = prompt('선생님 비밀번호를 넣어주세요.');
+  if (got === null) return;
+  if (got !== String(pin)) { alert('비밀번호가 달라요.'); return; }
+
+  stopCamera();
+  $('cfgClass').value = cfg.className;
+  $('cfgGoal').value = cfg.goal;
+  $('cfgRoster').value = cfg.roster.map((r) => r.name + ', ' + r.emoji).join('\n');
+  renderTables();
+  $('exportNote').textContent = window.showDirectoryPicker
+    ? ''
+    : '이 브라우저는 폴더에 바로 저장하는 기능을 지원하지 않습니다. ZIP을 쓰세요. (크롬·엣지 PC에서 지원)';
+  show('screen-teacher');
+}
+
+function renderTables() {
+  // 날짜별 현황
+  const days = lastDays(7);
+  let h = '<tr><th>이름</th>' +
+    days.map((d) => '<th>' + d.slice(5) + '</th>').join('') + '<th>합계</th></tr>';
+
+  cfg.roster.forEach((s) => {
+    h += '<tr><td class="nm">' + esc(s.name) + '</td>';
+    days.forEach((d) => {
+      const n = (tally[s.name] && tally[s.name][d]) || 0;
+      h += n ? '<td class="o">' + n + '</td>' : '<td class="x">·</td>';
+    });
+    h += '<td><b>' + countTotal(s.name) + '</b></td></tr>';
+  });
+  $('tblDays').innerHTML = h;
+
+  // 학생별 모은 장수
+  let p = '<tr><th>이름</th><th>모은 장수</th><th>올린 날 수</th><th>오늘</th></tr>';
+  cfg.roster.forEach((s) => {
+    const m = tally[s.name] || {};
+    p += '<tr><td class="nm">' + esc(s.name) + '</td>' +
+         '<td>' + countTotal(s.name) + '</td>' +
+         '<td>' + Object.keys(m).length + '</td>' +
+         '<td>' + (countToday(s.name) > 0
+            ? '<span class="o">○ ' + countToday(s.name) + '장</span>'
+            : '<span class="x">×</span>') + '</td></tr>';
+  });
+  $('tblStudents').innerHTML = p;
+}
+
+/* ---------- 사진을 하나씩 꺼내 주는 도우미 ----------
+   학생 이름별로 번호를 매겨 이름_0001.jpg 처럼 만듭니다.
+   이 이름 규칙은 eval.html(모델 평가)이 읽는 규칙과 같습니다. */
+function eachShot(onOne) {
+  return new Promise((resolve, reject) => {
+    const seq = {};
+    const tx = db.transaction('shots', 'readonly');
+    const cur = tx.objectStore('shots').index('by_name').openCursor();
+    const jobs = [];
+    cur.onsuccess = () => {
+      const c = cur.result;
+      if (!c) { Promise.all(jobs).then(resolve, reject); return; }
+      const v = c.value;
+      seq[v.name] = (seq[v.name] || 0) + 1;
+      const fname = v.name + '_' + String(seq[v.name]).padStart(4, '0') + '.jpg';
+      jobs.push(onOne(v.name, fname, v.blob));
+      c.continue();
+    };
+    cur.onerror = () => reject(cur.error);
+  });
+}
+
+/* 폴더에 바로 저장 (크롬·엣지 PC) */
+async function exportFolder() {
+  if (!window.showDirectoryPicker) {
+    alert('이 브라우저는 폴더 저장을 지원하지 않습니다. ZIP을 써 주세요.');
+    return;
+  }
+  let root;
+  try {
+    root = await window.showDirectoryPicker({ mode: 'readwrite' });
+  } catch (e) { return; }   // 선생님이 취소한 경우
+
+  $('btnFolder').disabled = true;
+  $('exportNote').textContent = '저장하는 중…';
+
+  const dirs = {};
+  let n = 0;
+  await eachShot(async (name, fname, blob) => {
+    if (!dirs[name]) dirs[name] = await root.getDirectoryHandle(name, { create: true });
+    const fh = await dirs[name].getFileHandle(fname, { create: true });
+    const w = await fh.createWritable();
+    await w.write(blob);
+    await w.close();
+    n++;
+  });
+
+  $('exportNote').textContent = '✅ ' + n + '장을 폴더에 저장했습니다.';
+  $('btnFolder').disabled = false;
+}
+
+/* ZIP으로 내려받기 (어느 기기에서나) */
+async function exportZip() {
+  $('btnZip').disabled = true;
+  $('exportNote').textContent = 'ZIP을 만드는 중…';
+
+  const zip = new JSZip();
+  let n = 0;
+  await eachShot((name, fname, blob) => {
+    zip.folder(name).file(fname, blob);
+    n++;
+    return Promise.resolve();
+  });
+
+  if (!n) {
+    $('exportNote').textContent = '아직 모은 사진이 없습니다.';
+    $('btnZip').disabled = false;
+    return;
+  }
+
+  const out = await zip.generateAsync({ type: 'blob' });
+  const url = URL.createObjectURL(out);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '우유출석_사진_' + today() + '.zip';
+  a.click();
+  URL.revokeObjectURL(url);
+
+  $('exportNote').textContent = '✅ ' + n + '장을 ZIP으로 내려받았습니다.';
+  $('btnZip').disabled = false;
+}
+
+/* =============================================================
+   8. 버튼 연결
+   ============================================================= */
+async function refresh() {
+  tally = await countAll();
+  renderRoster();
+}
+
+function bind() {
+  $('btnTeacher').onclick = openTeacher;
+  $('btnShoot').onclick = shoot;
+  $('btnCamSwitch').onclick = switchCamera;
+  $('btnBackHome').onclick = async () => { stopCamera(); await refresh(); show('screen-home'); };
+
+  $('btnAgain').onclick = () => {
+    if (pendingBlob) URL.revokeObjectURL($('shotPreview').src);
+    pendingBlob = null;
+    show('screen-camera');
+  };
+  $('btnKeep').onclick = keepShot;
+
+  $('btnDoneHome').onclick = async () => { await refresh(); show('screen-home'); };
+  $('btnMore').onclick = () => startCamera(current);
+
+  $('btnSaveCfg').onclick = saveCfg;
+  $('btnFolder').onclick = exportFolder;
+  $('btnZip').onclick = exportZip;
+  $('btnTeacherBack').onclick = async () => { await refresh(); show('screen-home'); };
+
+  $('btnWipe').onclick = async () => {
+    if (!confirm('모은 사진이 전부 사라집니다. 정말 지울까요?')) return;
+    if (!confirm('되돌릴 수 없어요. 폴더나 ZIP으로 먼저 꺼내 두셨나요?')) return;
+    await wipeAll();
+    await refresh();
+    renderTables();
+    alert('모두 지웠습니다.');
+  };
+
+  window.addEventListener('pagehide', stopCamera);
+}
+
+/* ---------- 출발! ---------- */
+(async function init() {
+  cfg = loadCfg();
+  $('classLabel').textContent = cfg.className;
+  try {
+    db = await openDB();
+  } catch (e) {
+    console.error(e);
+    alert('이 브라우저에서는 사진을 저장할 수 없습니다. (시크릿 창에서는 안 될 수 있어요)');
+    return;
+  }
+  bind();
+  await refresh();
+})();
+</script>
+</body>
+</html>

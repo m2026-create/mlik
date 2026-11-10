@@ -1,0 +1,5 @@
+# augment_images.py 를 돌리려면 필요합니다.
+#   pip install -r tools/requirements.txt
+Pillow>=10.0.0
+
+# report.py 는 추가 설치가 필요 없습니다 (파이썬 표준 라이브러리만 사용).
